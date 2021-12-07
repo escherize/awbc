@@ -5,7 +5,8 @@
     [awbc.view.subs :as s]
     [re-frame.core :as rf]
     [reagent.core :as reagent :refer [atom]]
-    [reagent.dom :as rdom]))
+    [reagent.dom :as rdom]
+    [cljs.pprint :as pp]))
 
 
 (defn p
@@ -15,22 +16,25 @@
 
 (defn ->svg-image
   [{:keys [x y terrain team] :as tile}]
-  (if (#{:mtn :plain :hq :factory} terrain)
-    [:svg
-     [:svg ; image
-      (when (#{:hq :factory} terrain)
-        (->svg-image (assoc tile :terrain :plain)))
-      [:image
-       {:href (case terrain
-                :mtn "assets/mtn.svg"
-                :plain "assets/plain.svg"
-                (:hq :factory) (str "assets/" team (name terrain) ".svg"))
-        :x (* 64 x)
-        :y (* 64 y)
-        :width 64
-        :height 128}]]]
-    (do (js/console.log (str "No ->svg for tile:  " (pr-str tile)))
-        (throw (js/Error (str "No ->svg for tile:  " (pr-str tile)))))))
+  (let [tiles @(rf/subscribe [::s/tiles])]
+    (if (#{:mtn :plain :hq :factory} terrain)
+      [:svg
+       [:svg ; image
+        (when (#{:hq :factory} terrain)
+          (->svg-image (assoc tile :terrain :plain)))
+        [:image
+         {:href (case terrain
+                  :mtn "assets/mtn.svg"
+                  :plain (if (#{:mtn :hq :factory} (:terrain (get tiles [(dec x) y])))
+                           "assets/plain_shadow.svg"
+                           "assets/plain.svg")
+                  (:hq :factory) (str "assets/" team (name terrain) ".svg"))
+          :x (* 64 x)
+          :y (* 64 y)
+          :width 64
+          :height 128}]]]
+      (do (js/console.log (str "No ->svg for tile:  " (pr-str tile)))
+          (throw (js/Error (str "No ->svg for tile:  " (pr-str tile))))))))
 
 
 (defn ->svg-unit
@@ -105,18 +109,19 @@
        (into
          [:svg {:width (* (inc width) 64) :height (* (+ 2 height) 64)}]
          (concat
-           (map ->svg-image tiles)
-           (map ->svg-unit tiles)
-           [(->svg-cursor)]
-           (map (fn [t] [->svg-interaction t]) tiles)))))])
+          (map ->svg-image tiles)
+          (map ->svg-unit tiles)
+          [(->svg-cursor)]
+          (map (fn [t] [->svg-interaction t]) tiles)))))])
 
 
 (defn game-view
   []
-  [:div
-   [:h3 "Advance Wars"]
+  [:div {:style {:margin-top 20}}
+   [:h3 {:style {:width "300px" :margin :auto}}
+    "Advance Wars"]
    [:div {:style {:margin "20px"}} [svg-view]]
-   [:pre (pr-str @(rf/subscribe [::s/hovered-tile]))]])
+   [:pre (with-out-str (pp/pprint @(rf/subscribe [::s/hovered-tile])))]])
 
 
 (defn main!

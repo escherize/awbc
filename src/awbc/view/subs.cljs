@@ -12,10 +12,16 @@
             (fn [{:keys [game] :as db} _]
               (->> game :tiles keys (mapv second) (apply max))))
 
+(rf/reg-sub ::tiles
+            (fn [{:keys [game] :as db} _]
+              (->> game :tiles)))
 
 (rf/reg-sub ::y-sorted-tiles
             (fn [{:keys [game] :as db} _]
-              (->> game :tiles (sort-by first) (mapv second))))
+              (->> game
+                   :tiles
+                   (sort-by first)
+                   (mapv second))))
 
 
 (rf/reg-sub ::hovered-tile

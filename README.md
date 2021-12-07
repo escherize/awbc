@@ -1,6 +1,6 @@
 # awbc
 
-FIXME: description
+![demo](./resources/assets/demo_awbc.png "screenshot")
 
 ## Installation
 
