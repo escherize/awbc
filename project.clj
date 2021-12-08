@@ -6,7 +6,7 @@
   :dependencies [[org.clojure/clojure "1.10.1"]
 
                  ;; shadow
-                 [thheller/shadow-cljs "2.8.36"]
+                 [thheller/shadow-cljs "2.16.7"]
 
                  ;; cljs
                  [reagent "0.8.1"]

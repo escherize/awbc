@@ -16,8 +16,9 @@
 
 (defn ->svg-image
   [{:keys [x y terrain team] :as tile}]
-  (let [tiles @(rf/subscribe [::s/tiles])]
-    (if (#{:mtn :plain :hq :factory} terrain)
+  (let [tiles @(rf/subscribe [::s/tiles])
+        shadow? (#{:mtn :hq :factory :forest} (:terrain (get tiles [(dec x) y])))]
+    (if (#{:mtn :plain :hq :factory :forest} terrain)
       [:svg
        [:svg ; image
         (when (#{:hq :factory} terrain)
@@ -25,16 +26,15 @@
         [:image
          {:href (case terrain
                   :mtn "assets/mtn.svg"
-                  :plain (if (#{:mtn :hq :factory} (:terrain (get tiles [(dec x) y])))
-                           "assets/plain_shadow.svg"
-                           "assets/plain.svg")
+                  :forest (str "assets/forest" (when shadow? "_shadow")  ".svg")
+                  :plain (str "assets/plain" (when shadow? "_shadow")  ".svg")
                   (:hq :factory) (str "assets/" team (name terrain) ".svg"))
           :x (* 64 x)
           :y (* 64 y)
           :width 64
           :height 128}]]]
-      (do (js/console.log (str "No ->svg for tile:  " (pr-str tile)))
-          (throw (js/Error (str "No ->svg for tile:  " (pr-str tile))))))))
+      (do (js/console.log (str "No ->svg-image for tile:  " (pr-str tile)))
+          (throw (js/Error (str "No ->svg-image for tile:  " (pr-str tile))))))))
 
 
 (defn ->svg-unit

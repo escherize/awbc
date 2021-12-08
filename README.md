@@ -1,6 +1,6 @@
 # awbc
 
-![demo](./resources/assets/demo_awbc.png "screenshot")
+![demo](./resources/assets/demo_awbc.png)
 
 ## Installation
 

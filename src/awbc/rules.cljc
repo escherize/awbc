@@ -128,6 +128,10 @@
       (update [(dec w) 0] merge {:terrain :hq :team "green"})
       (update [(- w 2) 1] merge {:terrain :factory :team "green"})
 
+      (assoc-in [[3 3] :terrain] :forest)
+      (assoc-in [[3 4] :terrain] :forest)
+      (assoc-in [[4 4] :terrain] :forest)
+
       (update [(dec w) (dec h)] merge {:terrain :hq :team "blue"})
       (update [(- w 2) (- h 2)] merge {:terrain :factory :team "blue"})
       (assoc-in [[(- w 3) (- h 3)] :unit] (create-unit :blue :infantry))
