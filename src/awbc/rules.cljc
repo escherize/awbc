@@ -5,16 +5,13 @@
     #?(:clj [malli.dev :as md])
     [malli.generator :as mg]))
 
-
 (defn ->enum
   [type]
   (into [:enum] type))
 
-
 (def UnitType
   [:infantry :mech :recon :apc :artillery :tank :md-tank :rocket
    :neo-tank :missle :anti-air :b-copter :t-copter :bomber :fighter])
-
 
 (def MoveType
   [:infantry :mech :wheels :treads
@@ -22,9 +19,7 @@
    ;; TODO and more
    ])
 
-
 (def Team [:red :blue :green :yellow :black])
-
 
 (def Unit
   [:map
@@ -37,6 +32,7 @@
    [:move nat-int?]
    [:has-moved? boolean?]
    [:indirect? boolean?]
+   [:waited? boolean?]
    [:shot-distance {:optional true}
     [:map [:min int?] [:max int?]]]
    [:can-load-units [:set (->enum UnitType)]]
@@ -55,21 +51,17 @@
    [:y nat-int?]
    [:unit {:optional true} Unit]])
 
-
 (def Tiles [:map-of [:tuple int? int?] Tile])
-
 
 (def Player
   [:map
    [:funds nat-int?]
    [:team (->enum Team)]])
 
-
 (def Game
   [:map
-   [:players [:vector Player]]
+   [:players [:vector {:min 1} Player]]
    [:board Tiles]])
-
 
 (defn create-unit
   [team unit-type]
@@ -86,7 +78,6 @@
                  (assoc :team team))]
     unit))
 
-
 (defn create-tile
   ([terrain x y] (create-tile terrain x y {}))
   ([terrain x y {:keys [team] :as opts}]
@@ -100,7 +91,6 @@
          [[x y] (create-tile :plain x y)])
        (into {})))
 
-
 (defn sample-tiles
   []
   (-> (create-tiles 3 3)
@@ -113,7 +103,6 @@
       (assoc-in [[2 1] :unit] (create-unit :red :infantry))
 
       (assoc-in [[2 2] :unit] (create-unit :blue :infantry))))
-
 
 (defn sample-tiles-two
   [w h]
@@ -138,16 +127,34 @@
       (assoc-in [[(- w 4) (- w 4)] :terrain] :mtn)
 
       (assoc-in [[2 2] :terrain] :mtn)
+      (assoc-in [[2 3] :terrain] :mtn)
+      (assoc-in [[3 2] :terrain] :mtn)
       (assoc-in [[2 1] :unit] (create-unit :red :infantry))
       ;; (assoc-in [[2 1] :team] :red)
 
       #_(assoc-in [[2 2] :team] :blue)))
 
-
 (defn print-tiles
   [tiles]
   (vec (vals (sort-by first tiles))))
 
+
+
+(defn new-game []
+  {:game {:turn-number 0 :players []}
+   :tiles (create-tiles 6 6)})
+
+(defn current-player [game]
+  )
+
+(defn dissoc-in [m key-path]
+  (update-in m (drop-last key-path) dissoc (last key-path)))
+
+(defn move-unit [{:keys [tiles] :as game} from-coord to-coord]
+  (let [unit (get tiles from-coord)]
+    (-> game
+        (update :tiles dissoc-in ))
+    ))
 
 (comment
 
@@ -160,6 +167,3 @@
   (-> (create-tiles 6 6)
       (assoc-in [[3 3] :unit] (create-unit :red :infantry)))
   )
-
-
-;; (defn new-game [])

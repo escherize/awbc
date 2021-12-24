@@ -8,16 +8,13 @@
     [reagent.dom :as rdom]
     [cljs.pprint :as pp]))
 
-
-(defn p
-  [x]
-  (js/console.log (pr-str x)) x)
-
+(defn p [x] (js/console.log (pr-str x)) x)
 
 (defn ->svg-image
   [{:keys [x y terrain team] :as tile}]
   (let [tiles @(rf/subscribe [::s/tiles])
-        shadow? (#{:mtn :hq :factory :forest} (:terrain (get tiles [(dec x) y])))]
+        shadow? (#{:mtn :hq :factory :forest} (:terrain (get tiles [(dec x) y])))
+        tall? (#{:mtn} (:terrain (get tiles [x (dec y)])))]
     (if (#{:mtn :plain :hq :factory :forest} terrain)
       [:svg
        [:svg ; image
@@ -25,29 +22,20 @@
           (->svg-image (assoc tile :terrain :plain)))
         [:image
          {:href (case terrain
-                  :mtn "assets/mtn.svg"
-                  :forest (str "assets/forest" (when shadow? "_shadow")  ".svg")
-                  :plain (str "assets/plain" (when shadow? "_shadow")  ".svg")
-                  (:hq :factory) (str "assets/" team (name terrain) ".svg"))
+                    :mtn (str "assets/mtn" (when tall? "_tall") ".svg")
+                    :forest (str "assets/forest" (when shadow? "_shadow")  ".svg")
+                    :plain (str "assets/plain" (when shadow? "_shadow")  ".svg")
+                    (:hq :factory) (str "assets/" team (name terrain) ".svg"))
           :x (* 64 x)
           :y (* 64 y)
           :width 64
           :height 128}]]]
-      (do (js/console.log (str "No ->svg-image for tile:  " (pr-str tile)))
-          (throw (js/Error (str "No ->svg-image for tile:  " (pr-str tile))))))))
-
+      (let [msg (str "No ->svg-image for tile:  " (pr-str tile))]
+        (js/console.log msg)
+        (throw (js/Error msg))))))
 
 (defn ->svg-unit
   [{:keys [x y terrain team unit] :as tile}]
-  #_{:indirect? false,
-     :move-type :infantry,
-     :has-moved? false,
-     :move 3,
-     :can-load-units #{},
-     :type :infantry,
-     :team :red,
-     :hp 10,
-     :base-vision 2}
   (let [{:keys [indirect? move-type has-moved? move can-load type team hp base-vision]} unit]
     (when unit
       [:svg
@@ -58,21 +46,20 @@
          :width 64
          :height 64}]])))
 
-
 (defn ->svg-interaction
   [{:keys [x y terrain team] :as tile}]
   (let [hovered? (atom false)]
     (fn []
       [:svg
        #_(when @hovered?
-         [:rect
-          {:fill "none"
-           :stroke-width 2
-           :stroke "rgba(135, 206, 235,0.8)"
-           :x (dec (* 64 x))
-           :y (dec (* 64 (inc y)))
-           :width 66
-           :height 66}])
+           [:rect
+            {:fill "none"
+             :stroke-width 2
+             :stroke "rgba(135, 206, 235,0.8)"
+             :x (dec (* 64 x))
+             :y (dec (* 64 (inc y)))
+             :width 66
+             :height 66}])
        [:rect ; hover cell
         {:fill "rgba(135, 206, 235, 0.0)"
          :on-mouse-enter (fn [_]
@@ -109,9 +96,13 @@
        (into
          [:svg {:width (* (inc width) 64) :height (* (+ 2 height) 64)}]
          (concat
-          (map ->svg-image tiles)
-          (map ->svg-unit tiles)
+          (apply concat (mapv (fn [t] [:svg
+                                      (->svg-image t)
+                                      (->svg-unit t)]) tiles))
+          ;; (map ->svg-image tiles)
+          ;; (map ->svg-unit tiles)
           [(->svg-cursor)]
+
           (map (fn [t] [->svg-interaction t]) tiles)))))])
 
 
@@ -127,6 +118,8 @@
 (defn main!
   []
   (js/document.getElementById "app")
+
+
   (rf/dispatch [::e/init!])
   (rdom/render
     [game-view]
