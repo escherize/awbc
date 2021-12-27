@@ -30,7 +30,6 @@
    [:base-vision nat-int?]
    [:move-type (->enum MoveType)]
    [:move nat-int?]
-   [:has-moved? boolean?]
    [:indirect? boolean?]
    [:waited? boolean?]
    [:shot-distance {:optional true}
@@ -56,6 +55,9 @@
 (def Player
   [:map
    [:funds nat-int?]
+   ;; TODO:
+   ;;
+   ;; [:power-meter nat-int?]
    [:team (->enum Team)]])
 
 (def Game
@@ -73,7 +75,7 @@
                               :move-type :infantry
                               :move 3
                               :indirect? false
-                              :has-moved? false
+                              :waited? false
                               :can-load-units #{}})
                  (assoc :team team))]
     unit))
@@ -83,7 +85,6 @@
   ([terrain x y {:keys [team] :as opts}]
    (cond-> {:terrain terrain :x x :y y}
      team (assoc :team team))))
-
 
 (defn create-tiles
   [w h]
@@ -130,6 +131,9 @@
       (assoc-in [[2 3] :terrain] :mtn)
       (assoc-in [[3 2] :terrain] :mtn)
       (assoc-in [[2 1] :unit] (create-unit :red :infantry))
+      (assoc-in [[3 2] :unit] (create-unit :red :infantry))
+      (assoc-in [[3 3] :unit] (create-unit :red :infantry))
+      (assoc-in [[5 3] :unit] (create-unit :red :infantry))
       ;; (assoc-in [[2 1] :team] :red)
 
       #_(assoc-in [[2 2] :team] :blue)))
@@ -138,23 +142,23 @@
   [tiles]
   (vec (vals (sort-by first tiles))))
 
-
-
 (defn new-game []
-  {:game {:turn-number 0 :players []}
+  {:game {:turn-number 0
+          :mode :unselected
+          :mode-info {}
+          :players []}
    :tiles (create-tiles 6 6)})
 
 (defn current-player [game]
   )
 
-(defn dissoc-in [m key-path]
-  (update-in m (drop-last key-path) dissoc (last key-path)))
-
-(defn move-unit [{:keys [tiles] :as game} from-coord to-coord]
-  (let [unit (get tiles from-coord)]
+#_(defn move-unit [{:keys [tiles] :as game} from-coord to-coord]
+  (let [unit (get-in tiles [from-coord :unit])]
     (-> game
-        (update :tiles dissoc-in ))
-    ))
+        (update :tiles dissoc-in [from-coord :unit])
+        (assoc-in [:tiles to-coord :unit] unit)
+        (assoc :mode :unit-moved))))
+
 
 (comment
 

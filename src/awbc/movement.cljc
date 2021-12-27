@@ -39,19 +39,23 @@
 1 0 1
 2 1 2
 
+;; TODO: fix me
 (defn neighbors [[x y]]
   ;; n s e w
-  [[x (dec y)] [(inc x) y] [x (inc y)] [(dec x) y]])
+  #{[x (dec y)]
+    [(inc x) y]
+    [x (inc y)]
+    [(dec x) y]
+    [x y]})
 
-(defn movement-squares
+(defn movement-coords
   [{:keys [tiles] :as game} mover-coord]
-  ;; cross
-  #{[(dec x) y] [(inc x) y] [x (dec y)] [x (inc y)]
-    [x (inc y)]}
 
+  ;; cross
   #_(let [{:keys [move-type move]} (-> tiles (get mover-coord) :unit)
         neighbors (neighbors mover-coord)]
-    (loop [q neighbors])))
+      (loop [q neighbors]))
+  (neighbors mover-coord))
 
 
 (comment
@@ -70,7 +74,7 @@
       :unit
       {:indirect? false,
        :move-type :infantry,
-       :has-moved? false,
+       :waited? false,
        :move 3,
        :can-load-units #{},
        :type :infantry,
