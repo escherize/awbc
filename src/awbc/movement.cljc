@@ -32,7 +32,7 @@
      (->row :missile-silo
             3 1 1 1 1 1 _ _ _ _ _))))
 
-(defn ->cost [terrain move-type]
+(defn ->cost [move-type terrain]
   (get-in cost-table [terrain move-type]))
 
 2 1 2
@@ -45,17 +45,53 @@
   #{[x (dec y)]
     [(inc x) y]
     [x (inc y)]
-    [(dec x) y]
-    [x y]})
+    [(dec x) y]})
+
+(defn can-move-to?
+  "If a unit can move to a certain tile, returns remaining-movement, an int or returns false"
+  [{:keys [move-type] :as unit} remaining-move {:keys [terrain] :as to-tile}]
+  (let [cost (->cost move-type terrain)]
+    (cond
+      ;; TODO fix for transports
+      (:unit to-tile)
+      false
+
+      (nil? cost)
+      false
+
+      :else
+      (let [remaining (- remaining-move cost)]
+        (if (or (zero? remaining) (pos? remaining))
+          remaining
+          false)))))
+
+(comment
+
+  (can-move-to?
+   {:indirect? false,
+    :move-type :mech,
+    :move 3,
+    :can-load-units #{},
+    :type :infantry,
+    :waited? false,
+    :team :red,
+    :hp 10,
+    :base-vision 2}
+   2
+   {:terrain :mtn})
+
+  )
 
 (defn movement-coords
   [{:keys [tiles] :as game} mover-coord]
+  (if-let [unit (get tiles mover-coord)]
+    ;; TODO fix this
+    (let [coord->cost {mover-coord 0}]
 
-  ;; cross
-  #_(let [{:keys [move-type move]} (-> tiles (get mover-coord) :unit)
-        neighbors (neighbors mover-coord)]
-      (loop [q neighbors]))
-  (neighbors mover-coord))
+      )
+    (throw (ex-info (str "There is no mover at mover-coord: " mover-coord)
+                    {:mover-coord mover-coord
+                     :coord-tile (find tiles mover-coord)}))))
 
 
 (comment

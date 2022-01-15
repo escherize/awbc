@@ -66,7 +66,7 @@
 
 (defn ->mouse-over-events [current-player game-mode
                            {:keys [x y terrain team unit] :as tile}]
-  (p (str "->mouse-over-events" game-mode))
+  #_(p (str "->mouse-over-events" game-mode))
   (case game-mode
     :unselected {:on-click (fn [_] (log "clicked") (p tile)
                              (cond
@@ -88,7 +88,8 @@
                                   (if can-move-here?
                                     (rf/dispatch [::e/move-unit [x y]])
                                     (rf/dispatch [::e/set-game-mode :unselected])))})
-    :unit-moved {}))
+    :unit-moved {:on-click (fn [_]
+                             (rf/dispatch [::e/unmove-unit [x y]]))}))
 
 (defn ->svg-interaction
   [current-player game-mode game-mode-info {:keys [x y terrain team] :as tile}]
@@ -154,7 +155,7 @@
   [:div
    (let [width @(rf/subscribe [::s/width])
          height @(rf/subscribe [::s/height])]
-     (p "coord of unit:" game-mode-info)
+     #_(p "coord of unit:" game-mode-info)
      (when (and width height)
        (into
         [:svg {:width (* (inc width) sz) :height (* (+ 2 height) sz)}]
@@ -165,7 +166,7 @@
          [(->svg-cursor)]
          (map (fn [t] [->svg-interaction current-player game-mode game-mode-info t]) tiles)
          [[menu
-           (= (p "GM" game-mode) :unit-moved)
+           (= game-mode :unit-moved)
            (:to-coord game-mode-info)
            {:options ["wait" "fire" "load"]}]]))))])
 

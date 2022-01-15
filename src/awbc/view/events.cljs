@@ -3,6 +3,9 @@
     [awbc.rules :as rules]
     [re-frame.core :as rf]))
 
+(defn p
+  ([x] (js/console.log (pr-str x)) x)
+  ([tag x] (js/console.log tag ": " (pr-str x)) x))
 
 (rf/reg-event-db
   ::init!
@@ -42,9 +45,20 @@
          (assoc-in [:game :mode] :unit-moved)
          (assoc-in [:game :mode-info :to-coord] to-coord)))))
 
-(defn p
-  ([x] (js/console.log (pr-str x)) x)
-  ([tag x] (js/console.log tag ": " (pr-str x)) x))
+(rf/reg-event-db
+ ::unmove-unit
+ (fn [db [_ ]]
+   (let [game (:game db)
+         tiles (:tiles game)
+         to-coord (-> db :game :mode-info :to-coord)
+         from-coord (-> db :game :mode-info :from-coord)
+         unit (get-in tiles [to-coord :unit])
+         new-tiles (-> tiles
+                       (dissoc-in [to-coord :unit])
+                       (assoc-in [from-coord :unit] unit))]
+     (-> db
+         (assoc-in [:game :tiles] new-tiles)
+         (assoc-in [:game :mode] :unselected)))))
 
 (rf/reg-event-db
  ::wait-unit

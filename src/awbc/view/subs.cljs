@@ -46,5 +46,7 @@
  ::can-move-to?
  (fn [db [_ [x y]]]
    (contains?
-    (movement/movement-coords (:game db) (-> db :game :mode-info :from-coord))
+    (movement/movement-coords
+     (:game db)
+     (-> db :game :mode-info :from-coord))
     [x y])))

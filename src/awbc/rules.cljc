@@ -1,9 +1,10 @@
 (ns awbc.rules
   (:require
-    [awbc.damage :as damage]
-    [malli.core :as m]
-    #?(:clj [malli.dev :as md])
-    [malli.generator :as mg]))
+   [awbc.damage :as damage]
+   [awbc.shortest-path :as sp]
+   [malli.core :as m]
+   #?(:clj [malli.dev :as md])
+   [malli.generator :as mg]))
 
 (defn ->enum
   [type]
@@ -134,6 +135,7 @@
       (assoc-in [[3 2] :unit] (create-unit :red :infantry))
       (assoc-in [[3 3] :unit] (create-unit :red :infantry))
       (assoc-in [[5 3] :unit] (create-unit :red :infantry))
+      (assoc-in [[6 6] :unit] (create-unit :red :infantry))
       ;; (assoc-in [[2 1] :team] :red)
 
       #_(assoc-in [[2 2] :team] :blue)))
@@ -159,7 +161,6 @@
         (assoc-in [:tiles to-coord :unit] unit)
         (assoc :mode :unit-moved))))
 
-
 (comment
 
   (print-tiles (sample-tiles))
@@ -168,6 +169,98 @@
    {:terrain :hq, :unit {:type :tank, :hp 10 :ammo 1} :team :blue}
    {:terrain :plain, :unit {:type :anti-air, :hp 10} :team :red})
 
-  (-> (create-tiles 6 6)
-      (assoc-in [[3 3] :unit] (create-unit :red :infantry)))
+  (create-unit :red :infantry)
+
   )
+
+(comment
+  (def t
+    {[2 2]
+     {:terrain :hq,
+      :x 2,
+      :y 2,
+      :team "blue",
+      :unit
+      {:indirect? false,
+       :move-type :infantry,
+       :move 3,
+       :can-load-units #{},
+       :type :infantry,
+       :waited? false,
+       :team :blue,
+       :hp 10,
+       :base-vision 2}},
+     [0 0] {:terrain :hq, :x 0, :y 0, :team "red"},
+     [1 0] {:terrain :plain, :x 1, :y 0},
+     [1 1] {:terrain :mtn, :x 1, :y 1},
+     [0 2] {:terrain :plain, :x 0, :y 2},
+     [2 0] {:terrain :plain, :x 2, :y 0},
+     [2 1]
+     {:terrain :plain,
+      :x 2,
+      :y 1,
+      :unit
+      {:indirect? false,
+       :move-type :infantry,
+       :move 3,
+       :can-load-units #{},
+       :type :infantry,
+       :waited? false,
+       :team :red,
+       :hp 10,
+       :base-vision 2}},
+     [1 2] {:terrain :plain, :x 1, :y 2},
+     [0 1] {:terrain :plain, :x 0, :y 1}})
+
+
+  (sp/->graph [2 1] t)
+  (sp/shortest-path [2 1] [3 0] t)
+
+  )
+
+
+
+;;;; non-sense below
+
+(defn uuid4 [] (java.util.UUID/randomUUID))
+
+(defn uuid->byte-array [u]
+  (let [^long lo (.getLeastSignificantBits u)  ; least significant bits
+        ^long hi (.getMostSignificantBits u)]  ; most significant bits (left-most bits)
+    (-> (java.nio.ByteBuffer/allocate 16)      ; http://docs.oracle.com/javase/6/docs/api/java/util/UUID.html
+        (.putLong hi)
+        (.putLong lo)
+        (.array))))
+
+(def alphabet "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz")
+
+(defn ->base-58 [uuid]
+  (loop [in (uuid->byte-array uuid)
+         zero-counter 0
+         encoding-flag 0
+         b58-bytes 0
+         b58-encoding []
+         carry 0]
+
+
+    ))
+
+(type #uuid "341fefd6-6135-4170-8551-e11e670a5167")
+
+(defn <-base-58 [in]
+
+
+  )
+
+(defn uuid->58 [u]
+  (let [bytes (uuid->byte-array u)]
+    (loop [b bytes
+           offset 0]
+
+      )))
+
+
+"The quick brown fox jumps over the lazy dog."
+
+
+(uuid-as-byte-array)
