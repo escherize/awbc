@@ -6,12 +6,17 @@
     [re-frame.core :as rf]
     [reagent.core :as reagent :refer [atom]]
     [reagent.dom :as rdom]
-    [cljs.pprint :as pp]))
+    [cljs.pprint :as pp]
+    [awbc.movement :as movement]))
 
 (defn log [x] (js/console.log x))
+
 (defn p
   ([x] (js/console.log (pr-str x)) x)
   ([tag x] (js/console.log tag ": " (pr-str x)) x))
+
+(defn pp-str [x]
+  (with-out-str (pp/pprint x)))
 
 (def sz 64)
 
@@ -57,30 +62,33 @@
           :height sz})]])))
 
 ;; game modes:
-;; unselected
-;; unit-selected
-;; unit-moved
-;; factory-selected
-;; aiming
-;; menu?
+(def game-modes
+  #{:unselected :unit-selected :unit-moved
+    :factory-selected :aiming :menu?})
 
 (defn ->mouse-over-events [current-player game-mode
                            {:keys [x y terrain team unit] :as tile}]
-  #_(p (str "->mouse-over-events" game-mode))
+  (pp-str ["->mouse-over-events" game-mode])
   (case game-mode
-    :unselected {:on-click (fn [_] (log "clicked") (p tile)
+    :unselected {:on-click (fn [_]
+                             #_(log "clicked")
+                             #_(p tile)
                              (cond
                                (and unit
                                     (not (:waited? unit))
                                     ;; "red" team's turn
                                     (= (:team unit) (:team current-player)))
-                               ;; TODO
-                               (rf/dispatch [::e/set-game-mode :unit-selected {:from-coord [x y]}])))}
+                               (do
+                                 (rf/dispatch [::e/set-game-mode :unit-selected {:from-coord [x y]}])
+                                 (rf/dispatch [::e/set-movement-coords [x y]])
+                                 (rf/dispatch [::e/add-path [x y]]))))}
     :unit-selected (let [can-move-here? @(rf/subscribe [::s/can-move-to? [x y]])]
                      {:fill
                       (str "rgba(135, 206, 235, " (if can-move-here? "0.5" "0.0") ")")
                       ;; TODO
-                      ;; :on-mouse-entered (fn [_] (rf/dispatch [::e/add-path [x y]]))
+                      :on-mouse-enter (fn [_]
+                                        (rf/dispatch [::e/set-hovered [x y]])
+                                        (rf/dispatch [::e/add-path [x y]]))
                       :on-click (fn [_]
                                   ;; (log "clicked")
                                   ;; (p tile)
@@ -106,12 +114,8 @@
    [:rect ; hover cell
     (merge {:fill "rgba(135, 206, 235, 0.0)"
             :on-mouse-enter (fn [_]
-                              ;(reset! hovered? true)
-                              (rf/dispatch [::e/set-hovered [x y]])
-                              #_(js/console.log "mouse entered: " x y))
-            :on-mouse-leave (fn [_]
-                              ;(reset! hovered? false)
-                              #_(js/console.log "mouse left: " x y))
+                              (rf/dispatch [::e/set-hovered [x y]]))
+            ;;:on-mouse-leave (fn [_])
             :x (* sz x)
             :y (* sz (inc y))
             :width sz
@@ -150,6 +154,74 @@
                  :y (+ 50 top-left-y)
                  :fill "black"} "Fire"]])))
 
+;; :start :horiz :southwest :downend
+;; [0 0]  [0 1]  [1 1]      [2 1]
+
+(defn dir [[from-x from-y] [to-x to-y]]
+  (get {[0 1] :north [0 -1] :south [-1 0] :east [1 0] :west}
+       [(- from-x to-x) (- from-y to-y)]))
+
+(defn ->svg-hover-path []
+  (let [hovered-path @(rf/subscribe [::s/hover-path])]
+    ;; (js/console.log (ppp hovered-path))
+    ;; (js/console.log (ppp (partition 3 1 hovered-path)))
+    (when (> (count hovered-path) 1)
+      [:svg
+       ;; start:
+       (let [start-dir (dir (first hovered-path) (second hovered-path))
+             [x y] (first hovered-path)]
+         [:image
+          {:href (case start-dir
+                   :north "assets/path_start_up.svg"
+                   :south "assets/path_start_down.svg"
+                   :east "assets/path_start_right.svg"
+                   :west "assets/path_start_left.svg")
+           :x (dec (* sz x))
+           :y (dec (* sz y))
+           :width sz
+           :height (* 2 sz)}])
+
+       ;; middle:
+       (into [:svg]
+             (for [[from here to] (partition 3 1 hovered-path)]
+               (let [[x y] here
+                     from-dir (dir here from)
+                     to-dir (dir here to)]
+
+                 [:image
+                  (merge
+                   {:href (cond
+                            (or (= [from-dir to-dir] [:east :west])
+                                (= [from-dir to-dir] [:west :east]))
+                            (str "assets/path_horizontal.svg")
+
+                            (or (= [from-dir to-dir] [:south :north])
+                                (= [from-dir to-dir] [:north :south]))
+                            (str "assets/path_vertical.svg")
+
+                            :else
+                            (let [[x-dir y-dir] (sort-by #{:north :south} [from-dir to-dir])]
+                              (str "assets/path_" (name y-dir) (name x-dir) ".svg")))
+                    :x (dec (* sz x))
+                    :y (dec (* sz y))
+                    :width sz
+                    :height (* 2 sz)})])))
+
+       ;;end
+       (let [end-dir (dir (last (butlast hovered-path)) (last hovered-path))
+             [x y] (last hovered-path)]
+         [:image
+          {:href (case end-dir
+                   :north "assets/path_end_up.svg"
+                   :south "assets/path_end_down.svg"
+                   :east "assets/path_end_right.svg"
+                   :west "assets/path_end_left.svg")
+           :x (dec (* sz x))
+           :y (dec (* sz y))
+           :width sz
+           :height (* 2 sz)}])
+       ])))
+
 (defn svg-view
   [tiles game-mode game-mode-info current-player]
   [:div
@@ -162,6 +234,10 @@
         (concat
          (apply concat (mapv (fn [t] [:svg
                                       (->svg-image t)
+                                      #_(->svg-unit t)]) tiles))
+         (->svg-hover-path)
+         (apply concat (mapv (fn [t] [:svg
+                                      #_(->svg-image t)
                                       (->svg-unit t)]) tiles))
          [(->svg-cursor)]
          (map (fn [t] [->svg-interaction current-player game-mode game-mode-info t]) tiles)
@@ -169,6 +245,8 @@
            (= game-mode :unit-moved)
            (:to-coord game-mode-info)
            {:options ["wait" "fire" "load"]}]]))))])
+
+
 
 (defn game-view
   []
@@ -182,7 +260,8 @@
      [:div "coord:" (pr-str (:hovered-coord game))]
      [:div {:style {:margin "20px"}} [svg-view tiles game-mode game-mode-info current-player]]
      [:div "Game:" [:pre (pr-str game)]]
-     [:pre (with-out-str (pp/pprint @(rf/subscribe [::s/hovered-tile])))]]))
+     [:div (pp-str @(rf/subscribe [::s/hover-path]))]
+     [:div (pp-str @(rf/subscribe [::s/hovered-tile]))]]))
 
 (defn main!
   []

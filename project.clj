@@ -15,6 +15,7 @@
                  [metosin/malli "0.6.2"]
                  [com.cognitect/transit-cljs "0.8.256"]
                  [re-pressed "0.3.1"]
+                 [lambdaisland/deep-diff2 "2.4.138"]
 
                  ;; clojure
                  [http-kit "2.3.0"]

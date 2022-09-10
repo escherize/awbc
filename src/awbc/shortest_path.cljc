@@ -1,9 +1,8 @@
-(ns awbc.shortest-path
-  (:require [awbc.movement :as movement]))
+(ns awbc.shortest-path)
 
 ;; TODO
 ;;
-(declare neighbours
+(declare neighbors
          process-neighbour
          prepare-costs
          get-next-node
@@ -21,14 +20,15 @@
                    |   |         |
                 node   |         |
                cost-----         |
-             parent---------------"
+             parent---------------
+  "
   [start graph]
   (assoc (zipmap (keys graph)
-                 (repeat [Integer/MAX_VALUE nil]))
+                 (repeat [##Inf nil]))
          start [0 start]))
 
-(defn neighbours
-  "Get given node's neighbours along with their own costs and costs of corresponding edges.
+(defn neighbors
+  "Get given node's neighbors along with their own costs and costs of corresponding edges.
   Example output is: {1 [7 10] 2 [4 15]}
                       ^  ^  ^
                       |  |  |
@@ -61,7 +61,6 @@
        (sort-by (comp first second))
        ffirst))
 
-
 (defn unwind-path
   "Restore path from A to B based on costs data"
   [a b costs]
@@ -86,13 +85,13 @@
   Given one node and graph, finds all shortest paths to all other nodes.
 
   Graph example:
- {1 {2 7 3 9 6 14}
-  2 {1 7 3 10 4 15}
-  3 {1 9 2 10 4 11 6 2}
-  4 {2 15 3 11 5 6}
-  5 {6 9 4 6}
-  6 {1 14 3 2 5 9}}
-                   ^  ^  ^
+                 {1 {2 7, 3 9, 6 14}
+                  2 {1 7, 3 10, 4 15}
+                  3 {1 9, 2 10, 4 11, 6 2}
+                  4 {2 15, 3 11, 5 6}
+                  5 {6 9, 4 6}
+                  6 {1 14, 3 2, 5 9}}
+                  ^  ^  ^
                   |  |  |
          node label  |  |
     neighbour label---  |
@@ -121,41 +120,8 @@
                                      current-cost)
                             costs
                             (filter (comp unvisited first)
-                                    (neighbours current-node graph costs)))
+                                    (neighbors current-node graph costs)))
                     (disj unvisited current-node))))))
   ([a graph] (dijkstra* a nil graph)))
 
 ;; adapt it to the thing
-
-(defn map-vals [f m]
-  (zipmap (keys m) (map f (vals m))))
-
-(defn in-bounds? [max-x max-y [x y]]
-  (and (<= 0 x max-x) (<= 0 y max-y)))
-
-(defn max-coords [tiles]
-  (let [xs (map first (keys tiles))
-        ys (map second (keys tiles))]
-    [(apply max xs) (apply max ys)]))
-
-(defn ->graph [from tiles]
-  (let [move-type (get-in tiles [from :unit :move-type])
-        [max-x max-y] (max-coords tiles)]
-    (into {}
-          (for [coord (keys tiles)
-                :let [neighbors (filter #(in-bounds? max-x max-y %) (movement/neighbors coord))]]
-            [coord (zipmap neighbors
-                           (map (fn [n-coord]
-                                  (let [to-terrain (get-in tiles [n-coord :terrain])
-                                        move-cost (movement/->cost move-type to-terrain)]
-                                    move-cost))
-                                neighbors))]))))
-
-(defn shortest-path [from-coord to-coord tiles]
-  (let [graph (->graph from-coord tiles)
-        raw-results (dijkstra* from-coord to-coord graph)]
-    (->
-     (into {}
-           (for [[from [cost path]] raw-results]
-             [from {:cost cost :path (vec path)}]))
-     (assoc from-coord {:cost 0 :path [from-coord]}))))
