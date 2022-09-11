@@ -88,7 +88,7 @@
                       ;; TODO
                       :on-mouse-enter (fn [_]
                                         (rf/dispatch [::e/set-hovered [x y]])
-                                        (rf/dispatch [::e/add-path [x y]]))
+                                        (rf/dispatch-sync [::e/add-path [x y]]))
                       :on-click (fn [_]
                                   ;; (log "clicked")
                                   ;; (p tile)
@@ -165,7 +165,8 @@
   (let [hovered-path @(rf/subscribe [::s/hover-path])]
     ;; (js/console.log (ppp hovered-path))
     ;; (js/console.log (ppp (partition 3 1 hovered-path)))
-    (when (> (count hovered-path) 1)
+    (when (and (> (count hovered-path) 1)
+               (movement/continuous-path? hovered-path))
       [:svg
        ;; start:
        (let [start-dir (dir (first hovered-path) (second hovered-path))
@@ -187,7 +188,9 @@
                (let [[x y] here
                      from-dir (dir here from)
                      to-dir (dir here to)]
-
+                 (assert (and from-dir to-dir)
+                         (str "You must have a from and to dir! \n hovered-path: "
+                              (pr-str hovered-path)))
                  [:image
                   (merge
                    {:href (cond

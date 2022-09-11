@@ -130,6 +130,7 @@
                                     move-cost))
                                 neighbors))]))))
 
+
 (defn shortest-path
   ([from-coord tiles]
    (let [raw-results (->> tiles
@@ -146,11 +147,9 @@
        {:cost (first raw-results)
         :path (vec (second raw-results))}))))
 
-;; broken idk
-#_(m/=> movement-coords [:cat [:map Coord] :=> [:cat Coord]])
 (defn movement-coords
   "Calculates all walkable paths from mover-coord.
-   Returns a map of coord -> path like:
+   Returns a map of coord -> {:cost cost :path path} like:
   {[1 0] {:cost 2, :path [[0 0] [1 0]]}}"
   [{:keys [tiles] :as game} mover-coord]
   (let [tile (get tiles mover-coord)]
@@ -159,16 +158,23 @@
             coord->cost+path (shortest-path mover-coord tiles)]
         (into {}
               (filter
-               (fn [[coord {:keys [cost path]}]]
+               (fn [[_coord {:keys [cost _path]}]]
                  (<= cost unit-move))
                coord->cost+path)))
-      (throw (ex-info (str "There is no unit at mover-coord: " (pr-str mover-coord))
-                      {:mover-coord mover-coord
-                       :coord-tile (find tiles mover-coord)})))))
+      (do
+        #?(:cljs (js/console.log (pr-str {:mover-coord mover-coord
+                                          :coord-tile (find tiles mover-coord)})))
+        (throw (ex-info (str "There is no unit at mover-coord: " (pr-str mover-coord))
+                        {:mover-coord mover-coord
+                         :coord-tile (find tiles mover-coord)}))))))
+
+(defn continuous-path? [path]
+  (let [steps (mapv (fn [[[x1 y1] [x2 y2]]] [(- x1 x2) (- y1 y2)]) (partition 2 1 path))]
+    (every? #{[-1 0] [1 0] [0 1] [0 -1]} steps)))
 
 (comment
 
-  (def board-with-red-inf-center
+  (def tiles-with-red-inf-center
     {[4 3] {:terrain :plain, :x 4, :y 3}
      [2 2] {:terrain :plain, :x 2, :y 2}
      [3 3] {:terrain :plain, :x 0, :y 0}
@@ -215,7 +221,7 @@
      [4 0] {:terrain :plain, :x 4, :y 0}})
 
   (movement-coords
-   {:tiles board-with-red-inf-center}
+    {:tiles tiles-with-red-inf-center}
    [0 0])
 ;; => {[0 0] {:cost 0, :path [[0 0]]}, [1 0] {:cost 2, :path [[0 0] [1 0]]}, [1 1] {:cost 3, :path [[0 0] [0 1] [1 1]]}, [0 3] {:cost 3, :path [[0 0] [0 1] [0 2] [0 3]]}, [0 2] {:cost 2, :path [[0 0] [0 1] [0 2]]}, [1 2] {:cost 3, :path [[0 0] [0 1] [0 2] [1 2]]}, [0 1] {:cost 1, :path [[0 0] [0 1]]}}
 

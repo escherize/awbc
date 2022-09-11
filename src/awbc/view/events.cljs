@@ -7,53 +7,6 @@
     [clojure.pprint :as pprint]
     [lambdaisland.deep-diff2 :as ddiff]))
 
-(def dbg
-  "
-  Output includes:
-  1. the event vector
-  2. a `clojure.data/diff` of db, before vs after, which shows
-     the changes caused by the event handler.  You will absolutely have
-     to understand https://clojuredocs.org/clojure.data/diff to
-     understand the output.
-
-  You'd typically include this interceptor after (to the right of) any
-  path interceptor.
-
-  Warning:  calling clojure.data/diff on large, complex data structures
-  can be slow. So, you won't want this interceptor present in production
-  code. So condition it out like this :
-
-    (re-frame.core/reg-event-db
-       :evt-id
-       [(when ^boolean goog.DEBUG re-frame.core/debug)]  ;; <-- conditional
-       (fn [db v]
-         ...))
-
-  To make this code fragment work, you'll also have to set goog.DEBUG to
-  false in your production builds - look in `project.clj` of /examples/todomvc.
-  "
-  (rf/->interceptor
-    :id     :debug
-    :before (fn debug-before
-              [context]
-              (js/console.log "Handling re-frame event:" (pr-str (rf/get-coeffect context :event)))
-              context)
-    :after  (fn debug-after
-              [context]
-              (let [event   (rf/get-coeffect context :event)
-                    orig-db (rf/get-coeffect context :db)
-                    new-db  (rf/get-effect   context :db ::not-found)]
-                (if (= new-db ::not-found)
-                  (js/console.log "No :db changes caused by:" (pr-str event))
-                  (let [[only-before only-after] (data/diff orig-db new-db)
-                        db-changed?    (or (some? only-before) (some? only-after))]
-                    (if db-changed?
-                      (do (js/console.group "db clojure.data/diff for:" (pr-str event))
-                          (js/console.log (pr-str (movement/diffmap only-before only-after)))
-                          (js/console.groupEnd))
-                      (js/console.log "No :db changes caused by:" (pr-str event)))))
-                context))))
-
 
 (defn p
   ([x] (js/console.log (pr-str x)) x)
@@ -84,21 +37,47 @@
 ;; todo fix me
 (rf/reg-event-db
   ::add-path
-  [dbg]
   (fn [db [_ [x y]]]
     (let [game (:game db)
+          moving-from-coord (:moving-from-coord db)
           hp (get-in db [:game :hovered-path])
-          from-unit (get-in db [:game :tiles (or (first hp) [x y])])
-          movement-coords (:movement-coords db)  ;; TODO #1 use movement-coords
-          travelable-tiles (set (keys movement-coords))]
+          from-coord (or (first hp) [x y])
+          from-unit (get-in db [:game :tiles from-coord])
+          travelable-tiles (set (keys (:movement-coords db)))]
       (if (contains? travelable-tiles [x y])
-        (if (can-move-distance? game from-unit (conj hp [x y]))
-          (update-in db [:game :hovered-path]
-                     #(-> % ((fnil conj []) [x y])
-                          distinct
-                          vec))
-          (assoc db [:game :hovered-path]
-                 (get [x y] movement-coords)))
+        (cond
+          (contains? (set (drop-last hp)) [x y])
+          (do
+            (js/console.log "step backwards")
+            (update-in db [:game :hovered-path]
+                       (fn [path]
+                         (vec (conj
+                                (vec (take-while #(not= % [x y]) path)) [x y])))))
+
+          (not (movement/continuous-path? hp))
+          (do (js/console.log "non continuous path")
+            (let [new-movement-coords (movement/movement-coords game
+                                                                (or moving-from-coord
+                                                                    from-coord))]
+              (assoc-in db [:game :hovered-path]
+                        (:path (get new-movement-coords [x y])))))
+
+          (can-move-distance? game from-unit (conj hp [x y]))
+          (do (js/console.log "can move dist")
+            (->
+                db
+                (update-in [:game :hovered-path]
+                           #(-> % ((fnil conj []) [x y]) distinct vec))
+                (assoc :moving-from-coord from-coord)))
+
+          :else
+          (do
+            (js/console.log "else")
+            (let [new-movement-coords (movement/movement-coords game
+                                                                (or moving-from-coord
+                                                                    from-coord))]
+              (assoc-in db [:game :hovered-path]
+                        (:path (get new-movement-coords [x y]))))))
 
         ;; moved outside of travel tiles
         db))))
