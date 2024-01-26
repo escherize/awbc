@@ -7,7 +7,6 @@
     [clojure.pprint :as pprint]
     [lambdaisland.deep-diff2 :as ddiff]))
 
-
 (defn p
   ([x] (js/console.log (pr-str x)) x)
   ([tag x] (js/console.log tag ": " (pr-str x)) x))
@@ -37,50 +36,55 @@
 ;; todo fix me
 (rf/reg-event-db
   ::add-path
-  (fn [db [_ [x y]]]
+  (fn [db [_ [to-x to-y]]]
     (let [game (:game db)
           moving-from-coord (:moving-from-coord db)
-          hp (get-in db [:game :hovered-path])
-          from-coord (or (first hp) [x y])
-          from-unit (get-in db [:game :tiles from-coord])
+          hpath (get-in db [:game :hovered-path])
+          starting-coord (or (first hpath) [to-x to-y])
+          from-unit (get-in db [:game :tiles starting-coord])
           travelable-tiles (set (keys (:movement-coords db)))]
-      (if (contains? travelable-tiles [x y])
+      (if (contains? travelable-tiles [to-x to-y])
         (cond
-          (contains? (set (drop-last hp)) [x y])
+          (contains? (set (drop-last hpath)) [to-x to-y])
           (do
-            (js/console.log "step backwards")
+            (js/console.log "step back")
             (update-in db [:game :hovered-path]
                        (fn [path]
                          (vec (conj
-                                (vec (take-while #(not= % [x y]) path)) [x y])))))
+                                (vec (take-while #(not= % [to-x to-y]) path)) [to-x to-y])))))
 
-          (not (movement/continuous-path? hp))
-          (do (js/console.log "non continuous path")
+          (not (movement/continuous-path? hpath))
+          (do (js/console.log "non-continuous path")
             (let [new-movement-coords (movement/movement-coords game
                                                                 (or moving-from-coord
-                                                                    from-coord))]
+                                                                    starting-coord))]
               (assoc-in db [:game :hovered-path]
-                        (:path (get new-movement-coords [x y])))))
+                        (:path (get new-movement-coords [to-x to-y])))))
 
-          (can-move-distance? game from-unit (conj hp [x y]))
-          (do (js/console.log "can move dist")
+          (can-move-distance? game from-unit (conj hpath [to-x to-y]))
+          (do (js/console.log "adding tile to path")
             (->
                 db
                 (update-in [:game :hovered-path]
-                           #(-> % ((fnil conj []) [x y]) distinct vec))
-                (assoc :moving-from-coord from-coord)))
+                           #(-> % ((fnil conj []) [to-x to-y]) distinct vec))
+                (assoc :moving-from-coord starting-coord)))
 
           :else
           (do
             (js/console.log "else")
             (let [new-movement-coords (movement/movement-coords game
                                                                 (or moving-from-coord
-                                                                    from-coord))]
+                                                                    starting-coord))]
               (assoc-in db [:game :hovered-path]
-                        (:path (get new-movement-coords [x y]))))))
+                        (:path (get new-movement-coords [to-x to-y]))))))
 
         ;; moved outside of travel tiles
         db))))
+
+(rf/reg-event-db
+  ::reset-path
+  (fn [db [_ coord]]
+    (assoc-in db [:game :hovered-path] [coord])))
 
 (rf/reg-event-db
  ::set-game-mode
@@ -110,13 +114,16 @@
          tiles (:tiles game)
          from-coord (-> db :game :mode-info :from-coord)
          unit (get-in tiles [from-coord :unit])
+         to-unit (get-in tiles [to-coord :unit])
          new-tiles (-> tiles
                        (dissoc-in [from-coord :unit])
                        (assoc-in [to-coord :unit] unit))]
-     (-> db
-         (assoc-in [:game :tiles] new-tiles)
-         (assoc-in [:game :mode] :unit-moved)
-         (assoc-in [:game :mode-info :to-coord] to-coord)))))
+     (if to-unit
+       db
+       (-> db
+           (assoc-in [:game :tiles] new-tiles)
+           (assoc-in [:game :mode] :unit-moved)
+           (assoc-in [:game :mode-info :to-coord] to-coord))))))
 
 (rf/reg-event-db
  ::unmove-unit
@@ -141,6 +148,22 @@
        (assoc-in [:game :tiles at-coord :unit :waited?] true)
        (assoc-in [:game :mode] :unselected)
        (assoc-in [:game :hovered-path] []))))
+
+(rf/reg-event-db
+  ::select-target
+  (fn [db [_ at-coord]]
+    (p "at-coord in select-target:" at-coord)
+    (let [game (:game db)
+          tiles (:tiles game)
+          to-coord (-> db :game :mode-info :to-coord)
+          unit (get-in tiles [to-coord :unit])]
+      (if (:indirect unit)
+        (do (p "TODO indirects not supported") db)
+        (let [o (-> db
+                    (assoc-in [:game :mode] :select-target)
+                    (assoc-in [:game :mode-info] (rules/can-attack tiles at-coord)))]
+          (prn o)
+          o)))))
 
 (rf/reg-event-db
  ::unselect-unit

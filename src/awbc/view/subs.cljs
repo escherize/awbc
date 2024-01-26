@@ -1,6 +1,7 @@
 (ns awbc.view.subs
   (:require
    [re-frame.core :as rf]
+   [awbc.rules :as rules]
    [awbc.movement :as movement]))
 
 
@@ -33,6 +34,12 @@
   (fn [{:keys [game]}]
     (-> (:tiles game)
         (get (:hovered-coord game)))))
+
+(rf/reg-sub
+  ::can-attack?
+  (fn [{:keys [game]}]
+    (let [{{at-coord :to-coord} :mode-info} game]
+      (rules/can-attack (:tiles game) at-coord))))
 
 (rf/reg-sub
   ::hover-path

@@ -33,27 +33,27 @@
 (def coord
   [:tuple {:title "coord"} :int :int])
 
+(def _ nil)
+
 (def costs
-  (let [_ nil]
-    [[:road         [0 1 1 1 1 1 1 1 1 _ _]]
-     [:bridge       [0 1 1 1 1 1 1 1 1 _ _]]
-     [:plain        [1 1 1 2 1 1 _ _ _ _ _]]
-     [:mtn          [4 2 1 _ _ _ _ _ 1 _ _]]
-     [:shoal        [0 1 1 1 1 1 _ 1 _ _ _]]
-     [:water        [0 _ _ _ _ _ _ _ 1 1 1]]
-     [:reef         [1 _ _ _ _ _ _ _ 1 2 2]]
-     [:dock         [3 1 1 1 1 1 1 1 _ _ _]]
-     [:hq           [4 1 1 1 1 1 _ _ _ _ _]]
-     [:city         [3 1 1 1 1 1 _ _ _ _ _]]
-     [:factory      [3 1 1 1 1 1 _ _ _ _ _]]
-     [:airport      [3 1 1 1 1 1 _ _ _ _ _]]
-     [:river        [0 2 1 _ _ _ _ _ 1 _ _]]
-     [:sky          [0 _ _ _ _ _ _ _ 1 _ _]]
-     [:forest       [2 1 1 3 2 1 _ _ _ _ _]]
-     [:missile-silo [3 1 1 1 1 1 _ _ _ _ _]]]))
+  [[:road         [0 1 1 1 1 1 1 1 1 _ _]]
+   [:bridge       [0 1 1 1 1 1 1 1 1 _ _]]
+   [:plain        [1 1 1 2 1 1 _ _ _ _ _]]
+   [:mtn          [4 2 1 _ _ _ _ _ 1 _ _]]
+   [:shoal        [0 1 1 1 1 1 _ 1 _ _ _]]
+   [:water        [0 _ _ _ _ _ _ _ 1 1 1]]
+   [:reef         [1 _ _ _ _ _ _ _ 1 2 2]]
+   [:dock         [3 1 1 1 1 1 1 1 _ _ _]]
+   [:hq           [4 1 1 1 1 1 _ _ _ _ _]]
+   [:city         [3 1 1 1 1 1 _ _ _ _ _]]
+   [:factory      [3 1 1 1 1 1 _ _ _ _ _]]
+   [:airport      [3 1 1 1 1 1 _ _ _ _ _]]
+   [:river        [0 2 1 _ _ _ _ _ 1 _ _]]
+   [:sky          [0 _ _ _ _ _ _ _ 1 _ _]]
+   [:forest       [2 1 1 3 2 1 _ _ _ _ _]]
+   [:missile-silo [3 1 1 1 1 1 _ _ _ _ _]]])
 
 (def move-type #{:infantry :mech :tires :tread :tire-a :tire-b :tank :air :ships :trans})
-(def terrain (set (mapv first costs)))
 
 (def cost-table
   "Shaped like {:road {:infantry 1 ...}}"
@@ -76,7 +76,9 @@
 
 (defn can-move-to?
   "If a unit can move to a certain tile, returns remaining-movement, an int or returns false"
-  [{:keys [move-type] :as unit} remaining-move {:keys [terrain] :as to-tile}]
+  [{:keys [move-type] :as unit}
+   remaining-move
+   {:keys [terrain] :as to-tile}]
   (let [cost (->cost move-type terrain)]
     (cond
       ;; TODO fix for transports
@@ -153,13 +155,26 @@
   {[1 0] {:cost 2, :path [[0 0] [1 0]]}}"
   [{:keys [tiles] :as game} mover-coord]
   (let [tile (get tiles mover-coord)]
-    (if (:unit tile)
-      (let [unit-move (-> tile :unit :move)
-            coord->cost+path (shortest-path mover-coord tiles)]
+    (if-let [unit (:unit tile)]
+      (let [coord->cost+path (shortest-path mover-coord tiles)]
         (into {}
               (filter
-               (fn [[_coord {:keys [cost _path]}]]
-                 (<= cost unit-move))
+               (fn [[coord {:keys [cost _path]}]]
+                 (let [dist-ok? (<= cost (-> unit :move))
+                       unit-at-to (get-in tiles [coord :unit :team])]
+                   (cond
+                     (= coord mover-coord)
+                     dist-ok?
+
+                     (= nil unit-at-to)
+                     dist-ok?
+
+                     (= (:team unit) unit-at-to)
+                     dist-ok?
+
+                     ;; cant move through other team
+                     (not= (:team unit) unit-at-to)
+                     false)))
                coord->cost+path)))
       (do
         #?(:cljs (js/console.log (pr-str {:mover-coord mover-coord
@@ -175,50 +190,47 @@
 (comment
 
   (def tiles-with-red-inf-center
-    {[4 3] {:terrain :plain, :x 4, :y 3}
-     [2 2] {:terrain :plain, :x 2, :y 2}
-     [3 3] {:terrain :plain, :x 0, :y 0}
-     [1 0] {:terrain :mtn, :x 1, :y 0}
-     [2 3] {:terrain :plain, :x 2, :y 3}
-     [2 5] {:terrain :plain, :x 2, :y 5}
-     [0 0] {:terrain :plain, :x 0, :y 0, :unit {:indirect? false,
-                                                :move-type :infantry,
-                                                :waited? false,
-                                                :move 3,
-                                                :can-load-units #{},
-                                                :type :infantry,
-                                                :team :red,
-                                                :hp 10,
-                                                :base-vision 2}},
-     [5 4] {:terrain :plain, :x 5, :y 4},
-     [1 1] {:terrain :mtn, :x 1, :y 1},
-     [0 5] {:terrain :plain, :x 0, :y 5},
-     [3 4] {:terrain :plain, :x 3, :y 4},
-     [4 2] {:terrain :plain, :x 4, :y 2},
-     [3 0] {:terrain :plain, :x 3, :y 0},
-     [5 3] {:terrain :plain, :x 5, :y 3},
-     [4 1] {:terrain :plain, :x 4, :y 1},
-     [5 2] {:terrain :plain, :x 5, :y 2},
-     [1 4] {:terrain :plain, :x 1, :y 4},
-     [1 3] {:terrain :plain, :x 1, :y 3},
-     [1 5] {:terrain :plain, :x 1, :y 5},
-     [0 3] {:terrain :plain, :x 0, :y 3},
-     [5 1] {:terrain :plain, :x 5, :y 1},
-     [5 5] {:terrain :plain, :x 5, :y 5},
-     [2 4] {:terrain :plain, :x 2, :y 4},
-     [4 5] {:terrain :plain, :x 4, :y 5},
+    {[0 0]
+     {:terrain :plain, :x 0, :y 0,
+      :unit {:indirect? false, :move-type :infantry, :move 3, :can-load-units #{},
+             :type :infantry, :waited? false, :team :red, :hp 10, :base-vision 2}},
+     [0 1] {:terrain :plain, :x 0, :y 1
+            :unit {:indirect? false, :move-type :infantry, :move 3, :can-load-units #{},
+                   :type :infantry, :waited? false, :team :red, :hp 10, :base-vision 2}},
      [0 2] {:terrain :plain, :x 0, :y 2},
-     [2 0] {:terrain :mtn, :x 2, :y 0},
+     [0 3] {:terrain :plain, :x 0, :y 3},
      [0 4] {:terrain :plain, :x 0, :y 4},
-     [3 1] {:terrain :plain, :x 3, :y 1},
-     [2 1] {:terrain :plain, :x 2, :y 1},
-     [4 4] {:terrain :plain, :x 4, :y 4},
-     [5 0] {:terrain :plain, :x 5, :y 0},
+     [0 5] {:terrain :plain, :x 0, :y 5},
+     [1 0] {:terrain :mtn, :x 1, :y 0},
+     [1 1] {:terrain :mtn, :x 1, :y 1},
      [1 2] {:terrain :plain, :x 1, :y 2},
-     [3 5] {:terrain :plain, :x 3, :y 5},
+     [1 3] {:terrain :plain, :x 1, :y 3},
+     [1 4] {:terrain :plain, :x 1, :y 4},
+     [1 5] {:terrain :plain, :x 1, :y 5},
+     [2 0] {:terrain :mtn, :x 2, :y 0},
+     [2 1] {:terrain :plain, :x 2, :y 1},
+     [2 2] {:terrain :plain, :x 2, :y 2},
+     [2 3] {:terrain :plain, :x 2, :y 3},
+     [2 4] {:terrain :plain, :x 2, :y 4},
+     [2 5] {:terrain :plain, :x 2, :y 5},
+     [3 0] {:terrain :plain, :x 3, :y 0},
+     [3 1] {:terrain :plain, :x 3, :y 1},
      [3 2] {:terrain :plain, :x 3, :y 2},
-     [0 1] {:terrain :plain, :x 0, :y 1},
-     [4 0] {:terrain :plain, :x 4, :y 0}})
+     [3 3] {:terrain :plain, :x 0, :y 0},
+     [3 4] {:terrain :plain, :x 3, :y 4},
+     [3 5] {:terrain :plain, :x 3, :y 5},
+     [4 0] {:terrain :plain, :x 4, :y 0},
+     [4 1] {:terrain :plain, :x 4, :y 1},
+     [4 2] {:terrain :plain, :x 4, :y 2},
+     [4 3] {:terrain :plain, :x 4, :y 3},
+     [4 4] {:terrain :plain, :x 4, :y 4},
+     [4 5] {:terrain :plain, :x 4, :y 5},
+     [5 0] {:terrain :plain, :x 5, :y 0},
+     [5 1] {:terrain :plain, :x 5, :y 1},
+     [5 2] {:terrain :plain, :x 5, :y 2},
+     [5 3] {:terrain :plain, :x 5, :y 3},
+     [5 4] {:terrain :plain, :x 5, :y 4},
+     [5 5] {:terrain :plain, :x 5, :y 5}})
 
   (movement-coords
     {:tiles tiles-with-red-inf-center}

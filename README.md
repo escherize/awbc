@@ -1,24 +1,25 @@
 # awbc
 
-![demo](./resources/assets/demo_awbc.png)
+Advance Wars spa 
 
 ## Installation
 
-Download from http://example.com/FIXME.
 
 ## Usage
 
-FIXME: explanation
+## Roadmap
 
-    $ java -jar awbc-0.1.0-standalone.jar [args]
+- [ ] get assets
+- [ ] board
+- [ ] users
+  - [ ] password
+- [ ] rules
+- [ ] lobby
+- [ ] timer
+- [ ] websocket
+- [ ] leaderboard
+- [ ] map editor
 
-## Options
-
-FIXME: listing of options this app accepts.
-
-## Examples
-
-...
 
 ### Bugs
 
@@ -43,16 +44,4 @@ the Free Software Foundation, either version 2 of the License, or (at your
 option) any later version, with the GNU Classpath Exception which is available
 at https://www.gnu.org/software/classpath/license.html.
 # Advance Wars By Clojure
-
-
-- [ ] get assets
-- [ ] users
-  - [ ] password
-- [ ] board
-- [ ] rules
-- [ ] lobby
-- [ ] timer
-- [ ] websocket
-- [ ] leaderboard
-- [ ] map editor
 

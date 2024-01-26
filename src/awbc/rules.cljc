@@ -15,10 +15,7 @@
    :neo-tank :missle :anti-air :b-copter :t-copter :bomber :fighter])
 
 (def MoveType
-  [:infantry :mech :wheels :treads
-   :air :sea
-   ;; TODO and more
-   ])
+  [:infantry :mech :wheels :treads :air :sea])
 
 (def Team [:red :blue :green :yellow :black])
 
@@ -35,7 +32,7 @@
    [:waited? boolean?]
    [:shot-distance {:optional true}
     [:map [:min int?] [:max int?]]]
-   [:can-load-units [:set (->enum UnitType)]]
+   [:loadable-unit-types [:set (->enum UnitType)]]
    [:load-slots {:optional true} int?]
    [:loaded-units {:optional true} [:vector Unit]]])
 
@@ -56,9 +53,8 @@
 (def Player
   [:map
    [:funds nat-int?]
-   ;; TODO:
-   ;;
-   ;; [:power-meter nat-int?]
+   [:power-meter nat-int?]
+   [:max-power-meter nat-int?]
    [:team (->enum Team)]])
 
 (def Game
@@ -77,7 +73,7 @@
                               :move 3
                               :indirect? false
                               :waited? false
-                              :can-load-units #{}})
+                              :loadable-unit-types #{}})
                  (assoc :team team))]
     unit))
 
@@ -87,28 +83,49 @@
    (cond-> {:terrain terrain :x x :y y}
      team (assoc :team team))))
 
-(defn create-tiles
-  [w h]
+(defn create-empty-tiles
+  [w h & [type]]
   (->> (for [x (range w) y (range h)]
-         [[x y] (create-tile :plain x y)])
+         [[x y] (create-tile (or type :plain) x y)])
        (into {})))
 
 (defn sample-tiles
   []
-  (-> (create-tiles 3 3)
-
+  (-> (create-empty-tiles 3 3)
       (update [0 0] merge {:terrain :hq :team "red"})
       (update [2 2] merge {:terrain :hq :team "blue"})
-
       (assoc-in [[1 1] :terrain] :mtn)
-
       (assoc-in [[2 1] :unit] (create-unit :red :infantry))
-
       (assoc-in [[2 2] :unit] (create-unit :blue :infantry))))
+
+(defn adjacent-cells [[from-x from-y]]
+  (for [[dx dy] [[0 1] [1 0] [-1 0] [0 -1]]]
+    [(+ dx from-x) (+ dy from-y)]))
+
+(defn can-attack [tiles from-coord]
+  (let [{:keys [indirect? team] :as unit} (get tiles from-coord)]
+    (if indirect?
+      (do (println "TODO indirects") [])
+      (let [adj-units (keep #(get tiles %) (adjacent-cells from-coord))]
+        (keep
+          #(when-let [nme-team (:team (:unit %))]
+             (and (contains? (set Team) nme-team)
+                  (not= team nme-team))
+             [(:x %) (:y %)])
+          adj-units)))))
+
+(comment
+  (-> (create-empty-tiles 2 2)
+      (update [0 0] merge {:terrain :hq :team :red})
+      (update [1 1] merge {:terrain :hq :team :blue})
+      (assoc-in [[0 1] :unit] (create-unit :red :infantry))
+      (assoc-in [[1 1] :unit] (create-unit :blue :infantry))
+      (can-attack [1 1]))
+  )
 
 (defn sample-tiles-two
   [w h]
-  (-> (create-tiles w h)
+  (-> (create-empty-tiles w h)
 
       (update [0 0] merge {:terrain :hq :team "red"})
       (update [1 1] merge {:terrain :factory :team "red"})
@@ -149,12 +166,12 @@
   [tiles]
   (vec (vals (sort-by first tiles))))
 
-(defn new-game []
+(defn new-game [?tiles]
   {:game {:turn-number 0
           :mode :unselected
           :mode-info {}
           :players []}
-   :tiles (create-tiles 6 6)})
+   :tiles (or ?tiles (create-empty-tiles 6 6))})
 
 (defn current-player [game]
   )
@@ -174,45 +191,53 @@
    {:terrain :hq, :unit {:type :tank, :hp 10 :ammo 1} :team :blue}
    {:terrain :plain, :unit {:type :anti-air, :hp 10} :team :red})
 
-  (create-unit :red :infantry)
+  (create-unit
+    :red
+    :infantry)
 
   )
 
 (comment
+
   (def t
-    {[2 2] {:terrain :hq,
-            :x 2,
-            :y 2,
-            :team "blue",
-            :unit {:indirect? false,
-                   :move-type :infantry,
-                   :move 3,
-                   :can-load-units #{},
-                   :type :infantry,
-                   :waited? false,
-                   :team :blue,
-                   :hp 10,
-                   :base-vision 2}},
-     [0 0] {:terrain :hq,
-            :x 0,
-            :y 0,
-            :team "red",
-            :unit {:indirect? false,
-                   :move-type :infantry,
-                   :move 3,
-                   :can-load-units #{},
-                   :type :infantry,
-                   :waited? false,
-                   :team :red,
-                   :hp 10,
-                   :base-vision 2}},
+
+    {[0 0]
+     {:terrain :hq,
+      :x 0,
+      :y 0,
+      :team "red",
+      :unit
+      {:indirect? false,
+       :move-type :infantry,
+       :move 3,
+       :type :infantry,
+       :waited? false,
+       :team :red,
+       :hp 10,
+       :loadable-unit-types #{},
+       :base-vision 2}},
+     [0 1] {:terrain :plain, :x 0, :y 1},
+     [0 2] {:terrain :plain, :x 0, :y 2},
      [1 0] {:terrain :plain, :x 1, :y 0},
      [1 1] {:terrain :mtn, :x 1, :y 1},
-     [0 2] {:terrain :plain, :x 0, :y 2},
-     [2 0] {:terrain :plain, :x 2, :y 0},
-     [2 1] {:terrain :plain, :x 2, :y 1,},
      [1 2] {:terrain :plain, :x 1, :y 2},
-     [0 1] {:terrain :plain, :x 0, :y 1}})
+     [2 0] {:terrain :plain, :x 2, :y 0},
+     [2 1] {:terrain :plain, :x 2, :y 1},
+     [2 2]
+     {:terrain :hq,
+      :x 2,
+      :y 2,
+      :team "blue",
+      :unit
+      {:indirect? false,
+       :move-type :infantry,
+       :move 3,
+       :type :infantry,
+       :waited? false,
+       :team :blue,
+       :hp 10,
+       :loadable-unit-types #{},
+       :base-vision 2}}})
 
   (movement/shortest-path [0 0] t)
   (movement/shortest-path [0 0] [2 1] t)

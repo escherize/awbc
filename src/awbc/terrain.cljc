@@ -1,6 +1,5 @@
 (ns awbc.terrain)
 
-
 (defn ->stars
   [t]
   ;; TODO check these:

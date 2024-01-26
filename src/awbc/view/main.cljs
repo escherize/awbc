@@ -71,8 +71,7 @@
   (pp-str ["->mouse-over-events" game-mode])
   (case game-mode
     :unselected {:on-click (fn [_]
-                             #_(log "clicked")
-                             #_(p tile)
+                             ;; (log "clicked") (p tile)
                              (cond
                                (and unit
                                     (not (:waited? unit))
@@ -95,9 +94,15 @@
                                   ;; (p "can-move-here?" can-move-here?)
                                   (if can-move-here?
                                     (rf/dispatch [::e/move-unit [x y]])
-                                    (rf/dispatch [::e/set-game-mode :unselected])))})
+                                    (do
+                                      (rf/dispatch [::e/set-game-mode :unselected])
+                                      (rf/dispatch [::e/reset-path [x y]]))))})
     :unit-moved {:on-click (fn [_]
-                             (rf/dispatch [::e/unmove-unit [x y]]))}))
+                             (rf/dispatch [::e/unmove-unit [x y]]))}
+    :select-target {:on-click (let [can-attack? @(rf/subscribe [::s/can-attack?])]
+                                (if @can-attack?
+                                  (fn [_] (rf/dispatch ::e/select-target [x y]))
+                                  (fn [_])))}))
 
 (defn ->svg-interaction
   [current-player game-mode game-mode-info {:keys [x y terrain team] :as tile}]
@@ -132,7 +137,8 @@
       :height (* 2 sz)}]))
 
 (defn menu [on? [x y] {:keys [options]}]
-  (let [top-left-x (+ (/ sz 4) (* sz (inc x)))
+  (let [can-attack? @(rf/subscribe [::s/can-attack?])
+        top-left-x (+ (/ sz 4) (* sz (inc x)))
         top-left-y (+ (/ sz 4) (* sz (inc y)))]
     (when on?
       [:svg
@@ -150,9 +156,11 @@
                ;; :on-mouse-enter (fn [] (p "hover"))
                ;; :on-mouse-leave (fn [] (p "hover end"))
                :fill "black"} "Wait"]
-       #_[:text {:x (+ 10 top-left-x)
+       (when (not-empty can-attack?)
+         [:text {:x (+ 10 top-left-x)
                  :y (+ 50 top-left-y)
-                 :fill "black"} "Fire"]])))
+                 :on-click (fn [] (rf/dispatch [::e/select-target [x y]]))
+                 :fill "black"} "Fire"])])))
 
 ;; :start :horiz :southwest :downend
 ;; [0 0]  [0 1]  [1 1]      [2 1]
@@ -249,7 +257,12 @@
            (:to-coord game-mode-info)
            {:options ["wait" "fire" "load"]}]]))))])
 
-
+(defn- draw-hidden-images
+  "This is a hack to have no rtt delay when a new image is displayed for the first time."
+  []
+  (into [:div {:style {:display "none"}}]
+        (for [href ["assets/path_end_down.svg" "assets/path_end_left.svg" "assets/path_end_right.svg" "assets/path_end_up.svg" "assets/path_horizontal.svg" "assets/path_northeast.svg" "assets/path_northwest.svg" "assets/path_southeast.svg" "assets/path_southwest.svg" "assets/path_start_down.svg" "assets/path_start_left.svg" "assets/path_start_right.svg" "assets/path_start_up.svg" "assets/path_vertical.svg"]]
+          [:svg [:image {:href href}]])))
 
 (defn game-view
   []
@@ -260,11 +273,16 @@
         current-player @(rf/subscribe [::s/current-player-turn])]
     [:div {:style {:margin-top 20}}
      [:h3 {:style {:width "300px" :margin :auto}} "Advance Wars"]
-     [:div "coord:" (pr-str (:hovered-coord game))]
+
+     [:div "hovered-coord:" (pr-str (:hovered-coord game))]
+
      [:div {:style {:margin "20px"}} [svg-view tiles game-mode game-mode-info current-player]]
-     [:div "Game:" [:pre (pr-str game)]]
-     [:div (pp-str @(rf/subscribe [::s/hover-path]))]
-     [:div (pp-str @(rf/subscribe [::s/hovered-tile]))]]))
+     [:div "Game:" [:pre (pp-str game)]]
+
+     [:pre "::s/hover-path   | " (pp-str @(rf/subscribe [::s/hover-path]))]
+     [:pre "::s/hovered-tile | " (pp-str @(rf/subscribe [::s/hovered-tile]))]
+     [:pre "::s/can-attack? | " (pp-str @(rf/subscribe [::s/can-attack?]))]
+     [draw-hidden-images]]))
 
 (defn main!
   []
@@ -281,6 +299,7 @@
 
 
 (comment
-
+  ;; TODO keep writing target selection
+  ;; TODO some bug around moving the mouse too fast + paths
 
   )
